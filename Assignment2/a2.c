@@ -9,8 +9,11 @@
 #include <semaphore.h>
 #include <stdlib.h>
 pid_t pid[10];
+int tid;
 int sem64;
-pthread_t threadsP6[10];
+int sem5;
+int countth = 0;
+int sem22;
 void P(int semid, int semnum)
 {
     struct sembuf op = {semnum, -1, 0};
@@ -22,7 +25,26 @@ void V(int semid, int semnum)
     struct sembuf op = {semnum, +1, 0};
     semop(semid, &op, 1);
 }
-void *th_func(void *context)
+void *th_funcP2(void *context)
+{
+    int nr3 = (int)(size_t)context;
+
+    if (nr3 == 2)
+    {
+
+        info(BEGIN, 2, nr3);
+
+        info(END, 2, nr3);
+        V(sem22, 0);
+    }
+    else
+    {
+        info(BEGIN, 2, nr3);
+        info(END, 2, nr3);
+    }
+    return NULL;
+}
+void *th_funcP6(void *context)
 {
 
     int nr = (int)(size_t)context;
@@ -36,6 +58,7 @@ void *th_func(void *context)
     }
     else if (nr == 2)
     {
+        P(sem22, 0);
         info(BEGIN, 6, nr);
     }
     else
@@ -56,6 +79,19 @@ void *th_func(void *context)
 
     return NULL;
 }
+void *th_func44(void *context)
+{
+    int nr2 = (int)(size_t)context;
+    P(sem5, 0);
+    info(BEGIN, 5, nr2);
+    countth++;
+    info(END, 5, nr2);
+    V(sem5, 0);
+    countth--;
+
+    return NULL;
+}
+
 void p4procs(int i)
 {
     pid[i] = fork();
@@ -66,52 +102,110 @@ void p4procs(int i)
         exit(0);
     }
 }
+
 int main(int argc, char **argv)
 {
     init();
+    pthread_t threadsp6[15];
+    pthread_t threadsp5[45];
+    pthread_t threadsp2[10];
     info(BEGIN, 1, 0);
-    sem64 = semget(IPC_PRIVATE, 2, IPC_CREAT | 0600);
-    semctl(sem64, 0, SETVAL, 0);
-    semctl(sem64, 1, SETVAL, 0);
-    if (sem64 < 0)
+    sem22 = semget(IPC_PRIVATE, 2, IPC_CREAT | 0666);
+    if(sem22<0)
     {
-        perror("Error creating the semaphore set for P6");
-        exit(2);
+        perror("Error creating the semaphore for P2!");
+        exit(1);
     }
-    pid[2] = fork();
-    if (pid[2] == 0)
+    semctl(sem22, 0, SETVAL, 0);
+    semctl(sem22, 1, SETVAL, 0);
+    pid[0] = fork();
+    if (pid[0] == 0)
     {
         info(BEGIN, 2, 0);
+
+        for (int i = 1; i < 7; i++)
+        {
+
+           if( pthread_create(&threadsp2[i], NULL, th_funcP2, (void *)(size_t)i)!=0)
+           {
+               perror("Error creating threads for P2!");
+               exit(1);
+           }
+        }
+
+        for (int i = 1; i < 7; i++)
+        {
+            pthread_join(threadsp2[i], NULL);
+        }
         info(END, 2, 0);
         exit(0);
     }
-    pid[3] = fork();
-    if (pid[3] == 0)
+    pid[1] = fork();
+    if (pid[1] == 0)
     {
         info(BEGIN, 3, 0);
-        pid[4] = fork(); // p4 starts
-        if (pid[4] == 0)
+        pid[2] = fork();
+        if (pid[2] == 0)
         {
             info(BEGIN, 4, 0);
-            p4procs(5); // p5 starts
-            pid[6] = fork();
-            if (pid[6] == 0)
+            pid[5] = fork();
+            if (pid[5] == 0)
             {
+
+                sem5 = semget(IPC_PRIVATE, 1, IPC_CREAT | 0666);
+                if (sem5 < 0)
+                {
+                    perror("Error creating the semaphore for P5!");
+                    exit(0);
+                }
+                semctl(sem5, 0, SETVAL, 4);
+                info(BEGIN, 5, 0);
+                for (int t = 1; t < 45; t++)
+                {
+                    if (pthread_create(&threadsp5[t], NULL, th_func44, (void *)(size_t)t) != 0)
+                    {
+                        perror("Error creating threads for P5!");
+                        exit(1);
+                    }
+                }
+                for (int t = 1; t < 45; t++)
+                {
+                    pthread_join(threadsp5[t], NULL);
+                }
+                info(END, 5, 0);
+                exit(0);
+            }
+            pid[4] = fork();
+            if (pid[4] == 0)
+            {
+                sem64 = semget(IPC_PRIVATE, 2, IPC_CREAT | 0666);
+                semctl(sem64, 0, SETVAL, 0);
+                semctl(sem64, 1, SETVAL, 0);
+                if (sem64 < 0)
+                {
+                    perror("Error creating the semaphore set for P6!");
+                    exit(2);
+                }
                 info(BEGIN, 6, 0);
                 for (int i = 1; i < 6; i++)
                 {
 
-                    pthread_create(&threadsP6[i], NULL, th_func, (void *)(size_t)i);
+                    if(pthread_create(&threadsp6[i], NULL, th_funcP6, (void *)(size_t)i)!=0)
+                    {
+                        perror("Error creating threads for P6!");
+                        exit(1);
+                    }
                 }
 
                 for (int i = 1; i < 6; i++)
                 {
-                    pthread_join(threadsP6[i], NULL);
+                    pthread_join(threadsp6[i], NULL);
                 }
+
                 info(END, 6, 0);
                 exit(0);
             }
-            p4procs(7); // p7 starts
+            p4procs(7);
             wait(NULL); // p5 ends
             wait(NULL); // p6 ends
             wait(NULL); // p7 ends
