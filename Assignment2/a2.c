@@ -12,8 +12,10 @@ pid_t pid[10];
 int tid;
 int sem64;
 int sem5;
+int semT511;
 int countth = 0;
-int sem22;
+int semP2;
+int semT5112;
 void P(int semid, int semnum)
 {
     struct sembuf op = {semnum, -1, 0};
@@ -35,9 +37,15 @@ void *th_funcP2(void *context)
         info(BEGIN, 2, nr3);
 
         info(END, 2, nr3);
-        V(sem22, 0);
+        V(semP2, 0);
     }
-    else
+    if(nr3 == 1)
+    {
+        P(semP2,1);
+        info(BEGIN,2,nr3);
+        info(END,2,nr3);
+    }
+    else if(nr3!=2 && nr3!=1)
     {
         info(BEGIN, 2, nr3);
         info(END, 2, nr3);
@@ -58,8 +66,10 @@ void *th_funcP6(void *context)
     }
     else if (nr == 2)
     {
-        P(sem22, 0);
+        P(semP2, 0);
         info(BEGIN, 6, nr);
+        info(END,6,nr);
+        V(semP2,1);
     }
     else
     {
@@ -71,8 +81,8 @@ void *th_funcP6(void *context)
         P(sem64, 1);
         info(END, 6, nr);
     }
-    else if (nr != 4)
-    {
+    else if (nr != 4 && nr!=2)
+    { 
 
         info(END, 6, nr);
     }
@@ -92,6 +102,7 @@ void *th_func44(void *context)
     return NULL;
 }
 
+
 void p4procs(int i)
 {
     pid[i] = fork();
@@ -110,14 +121,14 @@ int main(int argc, char **argv)
     pthread_t threadsp5[45];
     pthread_t threadsp2[10];
     info(BEGIN, 1, 0);
-    sem22 = semget(IPC_PRIVATE, 2, IPC_CREAT | 0666);
-    if(sem22<0)
+    semP2 = semget(IPC_PRIVATE, 2, IPC_CREAT | 0666);
+    if(semP2<0)
     {
         perror("Error creating the semaphore for P2!");
         exit(1);
     }
-    semctl(sem22, 0, SETVAL, 0);
-    semctl(sem22, 1, SETVAL, 0);
+    semctl(semP2, 0, SETVAL, 0);
+    semctl(semP2, 1, SETVAL, 0);
     pid[0] = fork();
     if (pid[0] == 0)
     {
@@ -159,6 +170,14 @@ int main(int argc, char **argv)
                     exit(0);
                 }
                 semctl(sem5, 0, SETVAL, 4);
+                
+                semT511 = semget(IPC_PRIVATE, 1, IPC_CREAT | 0666);
+                if (semT511 < 0)
+                {
+                    perror("Error creating the semaphore set for P5.11!");
+                    exit(0);
+                }
+                semctl(semT511, 0, SETVAL, 0);
                 info(BEGIN, 5, 0);
                 for (int t = 1; t < 45; t++)
                 {
