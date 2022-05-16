@@ -14,9 +14,14 @@ int main()
 {
     char req_name[100];
     unsigned char n;
+    char *map = NULL;
+    int fdmem = -1;
+    unsigned int sh_size = 0;
     mkfifo("RESP_PIPE_33248", 0666);
     int fdread = open("REQ_PIPE_33248", O_RDONLY);
     int fdwrite = open("RESP_PIPE_33248", O_WRONLY);
+    unsigned char err = strlen("ERROR");
+    unsigned char succ = strlen("SUCCESS");
     if (fdread == -1)
     {
         perror("error opening request pipe!");
@@ -49,7 +54,40 @@ int main()
             write(fdwrite, &nr, sizeof(nr));
             exit(1);
         }
-        
+        if (strncmp(req_name, "CREATE_SHM", 10) == 0)
+        {
+            unsigned char req = strlen(req_name);
+
+            if (read(fdread, &sh_size, sizeof(unsigned int)) < 0)
+            {
+                close(fdread);
+                exit(1);
+            }
+            fdmem = shm_open("/tnYUYnaf", O_CREAT | O_RDWR, 0664);
+            ftruncate(fdmem, sh_size);
+            if (fdmem < 0)
+            {
+                exit(1);
+            }
+            map = (char *)mmap(0, sh_size, PROT_READ | PROT_WRITE, MAP_SHARED, fdmem, 0);
+
+            write(fdwrite, &req, 1);
+            write(fdwrite, "CREATE_SHM", req);
+
+            if (map == MAP_FAILED)
+            {
+                write(fdwrite, &err, 1);
+                write(fdwrite, "ERROR", err);
+                exit(1);
+            }
+            else
+            {
+                write(fdwrite, &succ, 1);
+                write(fdwrite, "SUCCESS", succ);
+                exit(1);
+            }
+            exit(1);
+        }
 
         else if (strncmp(req_name, "EXIT", 4) == 0)
         {
