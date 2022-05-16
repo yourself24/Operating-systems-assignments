@@ -13,6 +13,8 @@ unsigned int nr = 33248;
 int main()
 {
     char req_name[100];
+    unsigned char err = strlen("ERROR");
+    unsigned char succ = strlen("SUCCESS");
     unsigned char n;
     char *map = NULL;
     int fdmem = -1;
@@ -20,8 +22,6 @@ int main()
     mkfifo("RESP_PIPE_33248", 0666);
     int fdread = open("REQ_PIPE_33248", O_RDONLY);
     int fdwrite = open("RESP_PIPE_33248", O_WRONLY);
-    unsigned char err = strlen("ERROR");
-    unsigned char succ = strlen("SUCCESS");
     if (fdread == -1)
     {
         perror("error opening request pipe!");
@@ -54,7 +54,7 @@ int main()
             write(fdwrite, &nr, sizeof(nr));
             exit(1);
         }
-        if (strncmp(req_name, "CREATE_SHM", 10) == 0)
+        else if (strncmp(req_name, "CREATE_SHM", 10) == 0)
         {
             unsigned char req = strlen(req_name);
 
@@ -85,6 +85,91 @@ int main()
                 write(fdwrite, &succ, 1);
                 write(fdwrite, "SUCCESS", succ);
                 exit(1);
+            }
+            exit(1);
+        }
+        if (strncmp(req_name, "WRITE_TO_SHM", 11) == 0)
+        {
+            printf("ACI IS\n");
+            unsigned char len = strlen("WRITE_TO_SHM");
+            write(fdwrite, &len, 1);
+            write(fdwrite, "WRITE_TO_SHM", len);
+
+            unsigned int offset = 0;
+            if (read(fdread, &offset, sizeof(unsigned int)) < 0)
+            {
+                close(fdread);
+            }
+            unsigned int value = 0;
+            if (read(fdread, &value, sizeof(unsigned int)) < 0)
+            {
+                close(fdread);
+            }
+
+            if (offset >= 0 && offset <= 1735790 && offset + sizeof(value) <= 1735790)
+            {
+                if (memcpy(map + offset, &value, sizeof(value)) < 0)
+                {
+                    write(fdwrite, &err, 1);
+                    write(fdwrite, "ERROR", err);
+                    exit(1);
+                }
+                else
+                {
+                    write(fdwrite, &succ, 1);
+                    write(fdwrite, "SUCCESS", succ);
+                }
+            }
+            else
+            {
+                write(fdwrite, &err, 1);
+                write(fdwrite, "ERROR", err);
+                exit(1);
+            }
+            exit(1);
+        }
+        else if (strncmp(req_name, "MAP_FILE", 8) == 0)
+        {
+
+            printf("ACI IS\n");
+            unsigned char req2 = strlen("MAP_FILE");
+            unsigned char map_size = 0;
+            if (read(fdread, &map_size, sizeof(unsigned char)) < 0)
+            {
+                close(fdread);
+            }
+            char *sh_name = malloc(sizeof(char) * (map_size+1));
+            if (read(fdread, sh_name, map_size) < 0)
+            {   
+
+                exit(1);
+            }
+            write(fdwrite, &req2, 1);
+            write(fdwrite, "MAP_FILE", req2);
+            int fd=-1;
+             fd = open(sh_name, O_RDONLY);
+            if (fd == -1)
+            {
+                write(fdwrite, &err, 1);
+                write(fdwrite, "ERROR", err);
+                exit(1);
+            }
+            
+            map_size = lseek(fd, 0, SEEK_END);
+            lseek(fd, 0, SEEK_SET);
+            char *map2 = mmap(0, map_size, PROT_READ, MAP_SHARED, fd, 0);
+            if (map2 == MAP_FAILED)
+            {
+                close(fd);
+                write(fdwrite, &err, 1);
+                write(fdwrite, "ERROR", err);
+                exit(1);
+            }
+            else
+            {
+            write(fdwrite, &succ, 1);
+            write(fdwrite, "SUCCESS", succ);
+            close(fd);
             }
             exit(1);
         }
